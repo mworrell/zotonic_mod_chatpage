@@ -23,6 +23,7 @@
 (function($) {
 
     const DOM_ELEMENT_ID = "chatpage-presence";
+    const CALL_TIMEOUT   = 60000;
 
     const IDLE_TIMEOUT   = 60;
     const AWAY_TIMEOUT   = 300;
@@ -123,7 +124,7 @@
                         user_id: p_user_id,
                         client_id: p_client_id
                     },
-                    { qos: 1 })
+                    { qos: 1, timeout: CALL_TIMEOUT })
                 .then(function(msg) {
                     const data = {
                         client_id: p_client_id,
@@ -181,7 +182,7 @@
                         user_id: p_user_id,
                         client_id: p_client_id
                     },
-                    { qos: 1 })
+                    { qos: 1, timeout: CALL_TIMEOUT })
                 .then(function(msg) {
                     const data = {
                         client_id: p_client_id,

@@ -21,6 +21,7 @@
 (function($) {
 
     const DOM_ELEMENT_ID = "chatpage-chat";
+    const CALL_TIMEOUT = 60000;
 
     ////////////////////////////////////////////////////////////////////////////////
     // Model
@@ -77,7 +78,7 @@
             cotonic.broker.call(
                 "bridge/origin/model/chatpage/get/archive/"+model.page_id,
                 {},
-                { qos: 1 })
+                { qos: 1, timeout: CALL_TIMEOUT })
             .then(function(msg) {
                 model.is_loading = false;
                 actions.messages(msg.payload);
@@ -161,7 +162,7 @@
                 cotonic.broker.call(
                     topic,
                     {},
-                    { qos: 1 })
+                    { qos: 1, timeout: CALL_TIMEOUT })
                 .then(function(msg) {
                     actions.messages(msg.payload);
                 });
