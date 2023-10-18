@@ -1,0 +1,50 @@
+@media (min-width: 768px) {
+    body.chat div.admin-container {
+        margin-right: 300px;
+    }
+}
+
+body.chat #admin-chat {
+    right: 0;
+}
+
+#admin-chat {
+    z-index: 1000;
+    position: fixed;
+    right: -290px;
+    width: 290px;
+    top: 50px;
+    bottom: 0;
+    background-color: #dadada;
+    border-left: 1px solid #ccc;
+
+    display: flex;
+    flex-wrap: nowrap;
+    flex-direction: column;
+
+    transition-property: all;
+    transition-duration: .5s;
+    transition-timing-function: cubic-bezier(0, 1, 0.5, 1);
+}
+#chatpage-chat {
+    flex-grow: 1;
+}
+#chatpage-top {
+    flex-grow: 0;
+    padding: 4px;
+}
+#chatpage-bottom {
+    flex-grow: 0;
+}
+div.#chatpage-presence {
+    padding: 0 10px 8px 10px
+}
+#admin-chat-toggle {
+    top: 70px;
+    width: 32px;
+    margin-left: -32px;
+    position: absolute;
+    border: 1px solid #ccc;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
