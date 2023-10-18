@@ -2,20 +2,31 @@
 /* Automatically expand textarea when typing */
 $.widget("ui.autoexpand", {
     _init: function() {
-        var self = this;
+        const self = this;
+        const $input = $(this.element);
 
-        $(this.element).on('keyup', function(e) {
-            let wantedHeight = this.scrollHeight +
-                                parseFloat($(this).css("borderTopWidth")) +
-                                parseFloat($(this).css("borderBottomWidth"));
+        self.options.minheight = $input.parent().height();
+
+        function setHeight() {
+            let wantedHeight = $input.get(0).scrollHeight +
+                                parseFloat($input.css("borderTopWidth")) +
+                                parseFloat($input.css("borderBottomWidth"));
             wantedHeight = Math.min(wantedHeight, self.options.maxheight);
-            while ($(this).outerHeight() < wantedHeight) {
-                $(this).height($(this).height()+1);
+            wantedHeight = Math.max(wantedHeight, self.options.minheight);
+            while ($input.outerHeight() < wantedHeight) {
+                $input.height($input.height()+1);
             }
+        }
+
+        setHeight();
+
+        $input.on('keyup', function(e) {
+            setHeight();
         });
     }
 });
 
 $.ui.autoexpand.defaults = {
-    maxheight: 200
+    maxheight: 200,
+    minheight: 10
 };

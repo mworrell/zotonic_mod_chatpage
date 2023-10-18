@@ -311,7 +311,6 @@
     };
 
     actions.messages = function(data) {
-        console.log(data);
         if (data.status == "ok") {
             data = {
                 page_id: data.result.page_id,
