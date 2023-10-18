@@ -5,7 +5,7 @@ $.widget("ui.autoexpand", {
         var self = this;
 
         $(this.element).on('keyup', function(e) {
-            var wantedHeight = this.scrollHeight +
+            let wantedHeight = this.scrollHeight +
                                 parseFloat($(this).css("borderTopWidth")) +
                                 parseFloat($(this).css("borderBottomWidth"));
             wantedHeight = Math.min(wantedHeight, self.options.maxheight);

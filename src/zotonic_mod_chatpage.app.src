@@ -1,0 +1,15 @@
+{application, zotonic_mod_chatpage, [
+    {description, "Zotonic module for chats connected to a page."},
+    {vsn, git},
+    {registered, []},
+    {applications, [
+        kernel, stdlib, zotonic_core
+    ]},
+    {env, []},
+    {modules, []},
+    {doc, "doc"},
+    {licenses, ["Apache-2.0"]},
+    {links, [
+        {"GitHub", "https://github.com/driebit/zotonic_mod_chatpage"}
+    ]}
+]}.

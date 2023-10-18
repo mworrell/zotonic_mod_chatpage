@@ -1,16 +1,16 @@
 /**
  * @author Marc Worrell <marc@worrell.nl>
- * @copyright 2016 Marc Worrell
- * @doc Form for chatpage using pubzub (MQTT)
+ * @copyright 2016-2023 Marc Worrell
+ * @doc Form for chatpage using Cotonic MQTT
  *
- * Copyright 2016 Marc Worrell
+ * Copyright 2016-2023 Marc Worrell
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,18 +20,27 @@
 
 (function($) {
 
-    var DOM_ELEMENT_ID = "chatpage-form";
+    const DOM_ELEMENT_ID = "chatpage-form";
 
     ////////////////////////////////////////////////////////////////////////////////
-    // Model 
+    // Model
     //
-    var model = {
+    let model = {
         page_id: undefined,
         height: undefined
     };
 
+    function unique_id() {
+        let t = (new Date()).getTime() + "-";
+        const cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        for (let i=0; i < 20; i++) {
+            t += cs.charAt(Math.floor(Math.random() * cs.length));
+        }
+        return t;
+    }
+
     model.propose = function(data) {
-        // Modifiy model with data, if acceptable    
+        // Modifiy model with data, if acceptable
         data = data || {} ;
 
         if (data.new_page_id !== undefined && data.new_page_id !== model.page_id) {
@@ -39,19 +48,20 @@
         }
 
         if (model.page_id !== undefined && data.message !== undefined) {
-            var message = data.message.trim();
+            const message = data.message.trim();
             if (message.length > 0) {
-                var post = {
+                const post = {
                     page_id: model.page_id,
                     message: message,
-                    uniqueid: pubzub.unique_id()
+                    uniqueid: unique_id()
                 };
-                pubzub.publish(
-                    "~pagesession/chatpage/formsubmit",
+                cotonic.broker.publish(
+                    "chatpage/formsubmit",
                     post);
-                pubzub.publish(
-                    "~site/chatpage/"+model.page_id+"/post",
-                    post);
+                cotonic.broker.publish(
+                    "bridge/origin/model/chatpage/post/message/"+model.page_id,
+                    post,
+                    { qos: 2 });
 
                 $("#"+DOM_ELEMENT_ID+" form textarea")
                     .val("")
@@ -67,13 +77,13 @@
     ////////////////////////////////////////////////////////////////////////////////
     // View
     //
-    var view = {} ;
+    let view = {} ;
 
     // Initial State
     view.init = function(model) {
-        pubzub.subscribe(
-            "~pagesession/chatpage/selectroom",
-            function(_topic, msg) { actions.selectroom(msg.payload || msg); });
+        cotonic.broker.subscribe(
+            "chatpage/selectroom",
+            function(msg) { actions.selectroom(msg.payload || msg); });
 
         $("#"+DOM_ELEMENT_ID+" form").on("submit", function(e) {
             e.preventDefault();
@@ -122,7 +132,7 @@
     ////////////////////////////////////////////////////////////////////////////////
     // State
     //
-    var state =  { view: view };
+    let state =  { view: view };
 
     model.state = state ;
 
@@ -154,7 +164,7 @@
     // Actions
     //
 
-    var actions = {} ;
+    let actions = {} ;
 
     actions.selectroom = function(data) {
         data = { new_page_id: data.page_id };

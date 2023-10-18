@@ -73,20 +73,26 @@ function chat_new_message(chat_id, msg) {
     if (show_chat) {
         setTimeout(function() {
             $("body").addClass('chat');
-            pubzub.publish("~pagesession/chatpage/selectroom", { page_id: chat_id });
+            cotonic.broker.publish(
+                "chatpage/selectroom",
+                { page_id: chat_id });
         },10);
     }
 }
 
 {% if admin_id %}
-    pubzub.subscribe("~site/chatpage/{{ admin_id }}/mod_admin", function(_topic, msg) {
-        chat_new_message("{{ admin_id }}/mod_admin", msg.payload);
-    });
+    cotonic.broker.subscribe(
+        "bridge/origin/chatpage/{{ admin_id }}/mod_admin",
+        function(msg) {
+            chat_new_message("{{ admin_id }}/mod_admin", msg.payload);
+        });
 {% endif %}
 {% if id and id /= admin_id %}
-    pubzub.subscribe("~site/chatpage/{{ id }}/mod_admin", function(_topic, msg) {
-        chat_new_message("{{ id }}/mod_admin", msg.payload);
-    });
+    cotonic.broker.subscribe(
+        "bridge/origin/chatpage/{{ id }}/mod_admin",
+        function(msg) {
+            chat_new_message("{{ id }}/mod_admin", msg.payload);
+        });
 {% endif %}
 
 {% endjavascript %}

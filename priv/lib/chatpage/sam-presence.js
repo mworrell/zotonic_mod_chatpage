@@ -2,17 +2,17 @@
 
 /**
  * @author Marc Worrell <marc@worrell.nl>
- * @copyright 2016 Marc Worrell
- * @doc Chat using pubzub (MQTT) - Presence model
+ * @copyright 2016-2023 Marc Worrell
+ * @doc Chat using Cotonic MQTT - Presence model
  *
- * Copyright 2016 Marc Worrell
+ * Copyright 2016-2023 Marc Worrell
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,29 +22,30 @@
 
 (function($) {
 
-    var DOM_ELEMENT_ID = "chatpage-presence";
+    const DOM_ELEMENT_ID = "chatpage-presence";
 
-    var IDLE_TIMEOUT   = 60;
-    var AWAY_TIMEOUT   = 300;
-    var TYPING_TIMEOUT = 10;
+    const IDLE_TIMEOUT   = 60;
+    const AWAY_TIMEOUT   = 300;
+    const TYPING_TIMEOUT = 10;
 
-    var PUBLISH_PERIOD = 7;
-    var GONE_PERIOD    = 20;
-    var CLEANUP_PERIOD = 60;
+    const PUBLISH_PERIOD = 7;
+    const GONE_PERIOD    = 20;
+    const CLEANUP_PERIOD = 60;
 
-    var STATUS_GONE    = 0;
-    var STATUS_AWAY    = 1;
-    var STATUS_IDLE    = 2;
-    var STATUS_PRESENT = 3;
-    var STATUS_TYPING  = 4;
+    const STATUS_GONE    = 0;
+    const STATUS_AWAY    = 1;
+    const STATUS_IDLE    = 2;
+    const STATUS_PRESENT = 3;
+    const STATUS_TYPING  = 4;
 
-    var HTML_PLACEHOLDER = "...";
+    const HTML_PLACEHOLDER = "...";
 
     ////////////////////////////////////////////////////////////////////////////////
-    // Model 
+    // Model
     //
     var model = {
         client_id: undefined,
+        user_id: undefined,
         page_id: undefined,
         sub_id: undefined,
         is_sub_acked: false,
@@ -63,23 +64,35 @@
         ]
     };
 
-    model.propose = function(data) {
-        var now = Math.round(Date.now() / 1000);
-        var publish_presence = false;
+    function unique_id() {
+        let t = (new Date()).getTime() + "-";
+        const cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        for (let i=0; i < 20; i++) {
+            t += cs.charAt(Math.floor(Math.random() * cs.length));
+        }
+        return t;
+    }
 
-        // Modifiy model with data, if acceptable    
+    model.propose = function(data) {
+        const now = Math.round(Date.now() / 1000);
+        let publish_presence = false;
+
+        // Modifiy model with data, if acceptable
         data = data || {} ;
 
         if (data.new_page_id !== undefined && data.new_page_id !== model.page_id) {
             if (model.page_id) {
-                pubzub.publish("~site/chatpage/"+model.page_id+"/presence", {
-                    client_id: model.client_id,
-                    page_id: model.page_id,
-                    status: STATUS_GONE
-                });
+                cotonic.broker.publish(
+                    "bridge/origin/chatpage/"+model.page_id+"/presence",
+                    {
+                        client_id: model.client_id,
+                        page_id: model.page_id,
+                        status: STATUS_GONE
+                    },
+                    { qos: 1 });
             }
             if (model.sub_id) {
-                pubzub.unsubscribe(model.sub_id);
+                cotonic.broker.unsubscribe(model.sub_id);
             }
             model.page_id = data.new_page_id;
             model.sub_id = undefined;
@@ -89,37 +102,41 @@
         }
 
         if (data.is_subscribed === true && state.unsubscribed(model)) {
-            model.sub_id = pubzub.subscribe(
-                                "~site/chatpage/"+model.page_id+"/presence",
-                                function(topic, msg) {
+            model.sub_id = cotonic.broker.subscribe(
+                                "bridge/origin/chatpage/"+model.page_id+"/presence",
+                                function(msg) {
                                     actions.presence(msg);
                                 },
-                                function() {
-                                    actions.subscribe_ack({page_id: model.page_id});
-                                });
-        }
+                                { qos: 1 });
 
-        if (data.received_subscribe_ack !== undefined && data.page_id == model.page_id) {
             publish_presence = true;
         }
 
-        if (data.received_subscribe_html_ack !== undefined) {
-            if (model.received_subscribe_html_ack === false) {
-                for (var ph in model.html) {
-                    if (ph.html == HTML_PLACEHOLDER) {
-                        pubzub.publish("~site/chatpage/presence/html", {
-                            reply_topic: model.reply_topic,
-                            user_id: ph.user_id,
-                            client_id: ph.client_id
-                        });
+        for (let ph in model.html) {
+            if (ph.html == HTML_PLACEHOLDER) {
+                const p_user_id = ph.user_id;
+                const p_client_id = ph.client_id;
+
+                cotonic.broker.call(
+                    "bridge/origin/model/template/get/render/_chatpage_presence.tpl",
+                    {
+                        user_id: p_user_id,
+                        client_id: p_client_id
+                    },
+                    { qos: 1 })
+                .then(function(msg) {
+                    const data = {
+                        client_id: p_client_id,
+                        user_id: p_user_id,
+                        html: msg.payload.result
                     }
-                }
+                    actions.presence_html(data);
+                });
             }
-            model.received_subscribe_html_ack = true;
         }
 
         if (data.presence !== undefined && data.presence.page_id == model.page_id) {
-            var i;
+            let i;
 
             for (i=0; i<model.presences.length; i++) {
                 if (model.presences[i].client_id == data.presence.client_id) {
@@ -137,6 +154,7 @@
                 if (!(p.client_id in model.html)) {
                     model.html[p.client_id] = {
                         user_id: p.user_id,
+                        client_id: p.client_id,
                         html: HTML_PLACEHOLDER
                     };
                 }
@@ -154,11 +172,23 @@
                 return p.client_id == model.client_id || (now - p.last_seen) < CLEANUP_PERIOD;
             });
 
-            if (model.received_subscribe_html_ack && model.html[data.presence.client_id].html == HTML_PLACEHOLDER) {
-                pubzub.publish("~site/chatpage/presence/html", {
-                    reply_topic: model.reply_topic,
-                    user_id: data.presence.user_id,
-                    client_id: data.presence.client_id
+            if (model.html[data.presence.client_id].html == HTML_PLACEHOLDER) {
+                const p_client_id = data.presence.client_id;
+                const p_user_id = data.presence.user_id;
+                cotonic.broker.call(
+                    "bridge/origin/model/template/get/render/_chatpage_presence.tpl",
+                    {
+                        user_id: p_user_id,
+                        client_id: p_client_id
+                    },
+                    { qos: 1 })
+                .then(function(msg) {
+                    const data = {
+                        client_id: p_client_id,
+                        user_id: p_user_id,
+                        html: msg.payload.result
+                    }
+                    actions.presence_html(data);
                 });
             }
 
@@ -185,8 +215,8 @@
         }
 
         if (data.ping === true) {
-            var inactive_period = now - model.active;
-            var old_status = model.status;
+            const inactive_period = now - model.active;
+            const old_status = model.status;
 
             if (inactive_period > AWAY_TIMEOUT) {
                 model.status = STATUS_AWAY;
@@ -219,11 +249,15 @@
 
         if (model.page_id !== undefined && (publish_presence || (now - model.last_publish) > PUBLISH_PERIOD)) {
             model.last_publish = now;
-            pubzub.publish("~site/chatpage/"+model.page_id+"/presence", {
-                client_id: model.client_id,
-                page_id: model.page_id,
-                status: model.status
-            });
+            cotonic.broker.publish(
+                "bridge/origin/chatpage/"+model.page_id+"/presence",
+                {
+                    user_id: model.user_id,
+                    client_id: model.client_id,
+                    page_id: model.page_id,
+                    status: model.status
+                },
+                { qos: 1 });
         }
 
         // Render the new view
@@ -238,18 +272,19 @@
 
     // Initial State
     view.init = function(model) {
-        model.client_id = pubzub.unique_id();
+        model.client_id = unique_id();
         model.active = Date.now() / 1000;
+        model.user_id = undefined;
 
-        pubzub.subscribe(
-            "~pagesession/chatpage/selectroom",
-            function(_topic, msg) { actions.selectroom(msg.payload || msg); });
+        cotonic.broker.subscribe(
+            "model/auth/event/auth",
+            function(msg) {
+                model.user_id = msg.payload.user_id;
+            });
 
-        model.reply_topic = pubzub.reply_topic();
-        pubzub.subscribe(
-            model.reply_topic,
-            function(_topic, msg) { actions.presence_html(msg.payload); },
-            function() { actions.subscribe_reply_ack({}); });
+        cotonic.broker.subscribe(
+            "chatpage/selectroom",
+            function(msg) { actions.selectroom(msg.payload || msg); });
 
         var stateRepresentation = document.getElementById(DOM_ELEMENT_ID);
         if (stateRepresentation.dataset.pageId) {
@@ -376,21 +411,6 @@
         model.propose(data);
     };
 
-    actions.subscribe_ack = function(data) {
-        data = {
-            received_subscribe_ack: true,
-            page_id: data.page_id
-        };
-        model.propose(data);
-    };
-
-    actions.subscribe_reply_ack = function(_data) {
-        data = {
-            received_subscribe_html_ack: true
-        };
-        model.propose(data);
-    };
-
     actions.ping = function(_data) {
         model.propose({ ping: true });
     };
@@ -410,7 +430,7 @@
     actions.presence = function(msg) {
         data = {
             presence: {
-                user_id: msg.user_id,
+                user_id: msg.payload.user_id,
                 page_id: msg.payload.page_id,
                 client_id: msg.payload.client_id,
                 status: msg.payload.status

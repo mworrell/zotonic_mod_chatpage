@@ -36,7 +36,7 @@ a message for that chat is received.
 
 This can also be done by selecting it from the select element.
 
-![Admin Chat Example](https://github.com/mworrell/mod_chatpage/raw/master/doc/admin-chat.png)
+![Admin Chat Example](https://github.com/mworrell/zotonic_mod_chatpage/raw/master/doc/admin-chat.png)
 
 
 Installation

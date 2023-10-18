@@ -1,16 +1,16 @@
 /**
  * @author Marc Worrell <marc@worrell.nl>
- * @copyright 2016 Marc Worrell
- * @doc Form for chatpage using pubzub (MQTT)
+ * @copyright 2016-2023 Marc Worrell
+ * @doc Form for chatpage using Cotonic MQTT
  *
- * Copyright 2016 Marc Worrell
+ * Copyright 2016-2023 Marc Worrell
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,10 +20,10 @@
 
 (function($) {
 
-    var DOM_ELEMENT_ID = "chatpage-rooms";
+    const DOM_ELEMENT_ID = "chatpage-rooms";
 
     ////////////////////////////////////////////////////////////////////////////////
-    // Model 
+    // Model
     //
     var model = {
         page_id: undefined
@@ -32,8 +32,10 @@
     model.propose = function(data) {
         if (data.new_page_id !== undefined && data.new_page_id !== model.page_id) {
             model.page_id = data.new_page_id;
-            pubzub.publish("~pagesession/chatpage/selectroom", { page_id: model.page_id });
-   
+            cotonic.broker.publish(
+                "chatpage/selectroom",
+                { page_id: model.page_id },
+                { qos: 1 });
             state.render(model) ;
         }
     };
@@ -46,9 +48,12 @@
 
     // Initial State
     view.init = function(model) {
-        pubzub.subscribe(
-            "~pagesession/chatpage/selectroom",
-            function(_topic, msg) { actions.selectroom(msg.payload || msg); });
+        cotonic.broker.subscribe(
+            "chatpage/selectroom",
+            function(msg) {
+                actions.selectroom(msg.payload || msg);
+            },
+            { qos: 1 });
 
         $("#"+DOM_ELEMENT_ID+" select").on("click change", function(e) {
             e.preventDefault();
@@ -95,7 +100,7 @@
     // Derive thee state representation as a function of the systen
     // control state
     state.representation = function(model) {
-        var representation = "";
+        const representation = "";
         state.view.display(representation) ;
     };
 
@@ -124,7 +129,7 @@
     var actions = {} ;
 
     actions.selectroom = function(data) {
-        var parts = (''+data.page_id).split('/');
+        const parts = (''+data.page_id).split('/');
         if (parts.length == 2) {
             data = { new_page_id: data.page_id };
         } else {

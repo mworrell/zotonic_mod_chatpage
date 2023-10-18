@@ -1,16 +1,16 @@
 /**
  * @author Marc Worrell <marc@worrell.nl>
- * @copyright 2016 Marc Worrell
- * @doc Chat using pubzub (MQTT)
+ * @copyright 2016-2023 Marc Worrell
+ * @doc Chat using Cotonic MQTT
  *
- * Copyright 2016 Marc Worrell
+ * Copyright 2016-2023 Marc Worrell
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,15 +20,14 @@
 
 (function($) {
 
-    var DOM_ELEMENT_ID = "chatpage-chat";
+    const DOM_ELEMENT_ID = "chatpage-chat";
 
     ////////////////////////////////////////////////////////////////////////////////
-    // Model 
+    // Model
     //
     var model = {
         page_id: undefined,
         sub_id: undefined,
-        is_sub_acked: false,
         is_loaded: false,
         is_loaded_all: false,
         messages: [
@@ -48,42 +47,45 @@
     };
 
     model.propose = function(data) {
-        // Modifiy model with data, if acceptable    
+        // Modifiy model with data, if acceptable
         data = data || {} ;
 
         if (data.new_page_id !== undefined && data.new_page_id !== model.page_id) {
             if (model.sub_id) {
-                pubzub.unsubscribe(model.sub_id);
+                cotonic.broker.unsubscribe(model.sub_id);
             }
             model.page_id = data.new_page_id;
             model.sub_id = undefined;
-            model.is_sub_acked = false;
             model.is_loaded = false;
+            model.is_loading = false;
             model.is_loaded_all = false;
             model.messages = [];
             model.formsubmits = [];
         }
 
-        if (data.is_subscribed !== undefined && state.unsubscribed(model)) {
-            model.sub_id = pubzub.subscribe(
-                                "~site/chatpage/"+model.page_id,
-                                function(topic, msg) {
+        if (model.page_id !== undefined && data.is_subscribed !== undefined && state.unsubscribed(model)) {
+            model.sub_id = cotonic.broker.subscribe(
+                                "bridge/origin/chatpage/"+model.page_id,
+                                function(msg) {
                                     actions.messages(msg.payload);
                                 },
-                                function() {
-                                    actions.subscribe_ack({page_id: model.page_id});
-                                });
+                                { qos: 1 });
         }
 
-        if (data.received_subscribe_ack !== undefined && data.received_subscribe_ack == model.page_id) {
-            model.is_sub_acked = true;
-            if (!model.is_loaded) {
-                pubzub.publish("~site/chatpage/"+model.page_id+"/archive", { reply_topic: model.reply_topic });
-            }
+        if (state.subscribed(model) && !model.is_loaded && !model.is_loading) {
+            model.is_loading = true;
+            cotonic.broker.call(
+                "bridge/origin/model/chatpage/get/archive/"+model.page_id,
+                {},
+                { qos: 1 })
+            .then(function(msg) {
+                model.is_loading = false;
+                actions.messages(msg.payload);
+            });
         }
 
         if (data.messages !== undefined && data.page_id == model.page_id) {
-            var max_id;
+            let max_id;
 
             model.is_loaded = true;
             if (data.hasmore === false) {
@@ -100,12 +102,13 @@
                         if (a.id < b.id) return -1;
                         return 0;
                     });
-            var merged = [];
-            var sn = 0;
-            var dn = 0;
+            let merged = [];
+            let sn = 0;
+            let dn = 0;
+
             while (sn < model.messages.length && dn < data.messages.length) {
-                var a = model.messages[sn];
-                var b = data.messages[dn];
+                const a = model.messages[sn];
+                const b = data.messages[dn];
                 if (a.id < b.id) {
                     merged.push(a);
                     sn++;
@@ -113,6 +116,7 @@
                     merged.push(b);
                     dn++;
                 } else {
+                    merged.push(a);
                     sn++;
                     dn++;
                 }
@@ -126,7 +130,7 @@
             model.messages = merged;
 
             // Remove messages with matching uniqueid from formsubmits
-            var uniqueids = [];
+            let uniqueids = [];
             len = model.messages.length;
             for (sn = 0; sn < len; sn++) {
                 uniqueids[model.messages[sn].uniqueid] = true;
@@ -145,16 +149,22 @@
 
         if (data.is_loadmore === true && data.page_id == model.page_id) {
             if (model.is_loaded && !model.is_loaded_all) {
-                var topic = "~site/chatpage/"+model.page_id+"/archive";
-                var min_id = 0;
-                for (var i=0; i<model.messages.length; i++) {
+                let topic = "bridge/origin/chatpage/archive/"+model.page_id;
+                let min_id = 0;
+                for (let i=0; i<model.messages.length; i++) {
                     if (min_id) min_id = Math.min(model.messages[i].id, min_id);
                     else min_id = model.messages[i].id;
                 }
                 if (min_id) {
                     topic += "/"+min_id;
                 }
-                pubzub.publish(topic, { reply_topic: model.reply_topic });
+                cotonic.broker.call(
+                    topic,
+                    {},
+                    { qos: 1 })
+                .then(function(msg) {
+                    actions.messages(msg.payload);
+                });
             }
         }
 
@@ -170,17 +180,16 @@
 
     // Initial State
     view.init = function(model) {
-        pubzub.subscribe(
-            "~pagesession/chatpage/selectroom",
-            function(_topic, msg) { actions.selectroom(msg.payload || msg); });
-        pubzub.subscribe(
-            "~pagesession/chatpage/formsubmit",
-            function(_topic, msg) { actions.formsubmit(msg.payload || msg); });
-
-        model.reply_topic = pubzub.reply_topic();
-        pubzub.subscribe(
-            model.reply_topic,
-            function(_topic, msg) { actions.messages(msg.payload); });
+        cotonic.broker.subscribe(
+            "chatpage/selectroom",
+            function(msg) {
+                actions.selectroom(msg.payload || msg);
+            });
+        cotonic.broker.subscribe(
+            "chatpage/formsubmit",
+            function(msg) {
+                actions.formsubmit(msg.payload || msg);
+            });
 
         var stateRepresentation = document.getElementById(DOM_ELEMENT_ID);
         if (stateRepresentation.dataset.pageId) {
@@ -197,16 +206,16 @@
 
     // State representation of the ready state
     view.ready = function(model) {
-        var output = state.representation(model);
+        const output = state.representation(model);
         return output ;
     };
 
 
     // display the state representation
     view.display = function(representation) {
-        var stateRepresentation = document.getElementById(DOM_ELEMENT_ID);
-        var prevScrollHeight = stateRepresentation.scrollHeight;
-        var prevScrollTop = stateRepresentation.scrollTop;
+        let stateRepresentation = document.getElementById(DOM_ELEMENT_ID);
+        const prevScrollHeight = stateRepresentation.scrollHeight;
+        const prevScrollTop = stateRepresentation.scrollTop;
 
         stateRepresentation.innerHTML = representation;
 
@@ -214,8 +223,8 @@
         if (model.is_appended) {
             stateRepresentation.scrollTop = stateRepresentation.scrollHeight;
         } else {
-            var newHeight = $(stateRepresentation).height();
-            var newScrollHeight = stateRepresentation.scrollHeight;
+            const newHeight = $(stateRepresentation).height();
+            const newScrollHeight = stateRepresentation.scrollHeight;
             if (newScrollHeight > newHeight && newScrollHeight > prevScrollHeight) {
                 stateRepresentation.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight);
             }
@@ -232,8 +241,8 @@
     // Derive the state representation as a function of the systen
     // control state
     state.representation = function(model) {
-        var representation = "";
-        for (var k in model.messages) {
+        let representation = "";
+        for (let k in model.messages) {
             representation += model.messages[k].html;
         }
         if (!model.is_loaded_all && state.loaded(model)) {
@@ -251,12 +260,8 @@
        return model.page_id !== undefined && model.sub_id === undefined;
     };
 
-    state.subscribing = function(model) {
-       return model.page_id !== undefined && model.sub_id !== undefined && !model.is_sub_acked;
-    };
-
     state.subscribed = function(model) {
-       return model.page_id !== undefined && model.sub_id !== undefined && model.is_sub_acked;
+       return model.page_id !== undefined && model.sub_id !== undefined;
     };
 
     state.loaded = function(model) {
@@ -306,12 +311,15 @@
     };
 
     actions.messages = function(data) {
-        data = {
-            page_id: data.page_id,
-            messages: data.messages,
-            hasmore: data.hasmore
-        };
-        model.propose(data) ;
+        console.log(data);
+        if (data.status == "ok") {
+            data = {
+                page_id: data.result.page_id,
+                messages: data.result.messages,
+                hasmore: data.result.hasmore
+            };
+            model.propose(data) ;
+        }
     };
 
     actions.loadmore = function(data) {
