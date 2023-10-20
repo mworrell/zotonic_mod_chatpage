@@ -42,7 +42,7 @@ This can also be done by selecting it from the select element.
 Installation
 ------------
 
-Install this module like all other modules in `user/modules`.
+Install this module like all other modules in `apps_user/`.
 Ensure that the module is enabled and the access controls are set correctly.
 
 Every user wanting to chat must have *use* rights on *mod_chatpage*.
