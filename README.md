@@ -43,11 +43,10 @@ Installation
 ------------
 
 Install this module like all other modules in `apps_user/`.
-Ensure that the module is enabled and the access controls are set correctly.
+Ensure that the module is enabled and the access controls are set correctly:
 
-Every user wanting to chat must have *use* rights on *mod_chatpage*.
-
-Admin users having *use.mod_chatpage* right will see the chat menu on the right.
+ * Every user wanting to chat must have *use* rights on *mod_chatpage*.
+ * Admin users having *use.mod_chatpage* right will see the chat menu on the right.
 
 
 Dependencies
