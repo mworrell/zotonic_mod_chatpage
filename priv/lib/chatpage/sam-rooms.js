@@ -63,7 +63,7 @@
             actions.selectroom(data);
         });
 
-        var stateRepresentation = document.getElementById(DOM_ELEMENT_ID);
+        const stateRepresentation = document.getElementById(DOM_ELEMENT_ID);
         if (stateRepresentation.dataset.pageId) {
             model.page_id = stateRepresentation.dataset.pageId + "/" +
                             (stateRepresentation.dataset.chatName || "default");

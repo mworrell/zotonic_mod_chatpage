@@ -18,27 +18,32 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: ./user/modules/mod_chatpage/templates/_html_body_admin.tpl:27 ./user/modules/mod_chatpage/templates/page.chatpage.tpl:37 
+#: ./_build/default/lib/zotonic_mod_chatpage/priv/templates/_html_body_admin.tpl:27./_build/default/lib/zotonic_mod_chatpage/priv/templates/page.chatpage.tpl:37
 msgid ""
 "Load more"
 msgstr ""
+""
 
-#: ./user/modules/mod_chatpage/templates/_html_body_admin.tpl:14 
+#: ./_build/default/lib/zotonic_mod_chatpage/priv/templates/_html_body_admin.tpl:14
 msgid ""
 "Page"
 msgstr ""
+""
 
-#: ./user/modules/mod_chatpage/templates/_chatpage_form.tpl:5 
+#: ./_build/default/lib/zotonic_mod_chatpage/priv/templates/_chatpage_form.tpl:5
 msgid ""
 "Post"
 msgstr ""
+""
 
-#: ./user/modules/mod_chatpage/templates/page.chatpage.tpl:42 
+#: ./_build/default/lib/zotonic_mod_chatpage/priv/templates/page.chatpage.tpl:42
 msgid ""
 "Sorry, you can’t use the chat."
 msgstr ""
+""
 
-#: ./user/modules/mod_chatpage/templates/_chatpage_form.tpl:3 
+#: ./_build/default/lib/zotonic_mod_chatpage/priv/templates/_chatpage_form.tpl:3
 msgid ""
 "Type ..."
 msgstr ""
+""

@@ -48,9 +48,7 @@
         client_id: undefined,
         user_id: undefined,
         page_id: undefined,
-        sub_id: undefined,
-        is_sub_acked: false,
-        is_sub_html_acked: false,
+        is_subscribed: false,
         status: STATUS_PRESENT,
         active: 0,
         presences: [
@@ -92,24 +90,25 @@
                     },
                     { qos: 1 });
             }
-            if (model.sub_id) {
-                cotonic.broker.unsubscribe(model.sub_id);
+            if (model.is_subscribed) {
+                cotonic.broker.unsubscribe(
+                    "bridge/origin/chatpage/"+model.page_id+"/presence",
+                    { wid: model.client_id });
+                model.is_subscribed = false;
             }
             model.page_id = data.new_page_id;
-            model.sub_id = undefined;
-            model.is_sub_acked = false;
             model.presences = [];
             model.active = now;
         }
 
-        if (data.is_subscribed === true && state.unsubscribed(model)) {
-            model.sub_id = cotonic.broker.subscribe(
-                                "bridge/origin/chatpage/"+model.page_id+"/presence",
-                                function(msg) {
-                                    actions.presence(msg);
-                                },
-                                { qos: 1 });
-
+        if (data.subscribe === true && state.unsubscribed(model)) {
+            cotonic.broker.subscribe(
+                "bridge/origin/chatpage/"+model.page_id+"/presence",
+                function(msg) {
+                    actions.presence(msg);
+                },
+                { qos: 1, wid: model.client_id });
+            model.is_subscribed = true;
             publish_presence = true;
         }
 
@@ -357,7 +356,7 @@
             }
         }
         state.view.display(representation) ;
-    } ;
+    };
 
     // Derive the current state of the system
     state.idle = function(model) {
@@ -365,15 +364,11 @@
     };
 
     state.unsubscribed = function(model) {
-       return model.page_id !== undefined && model.sub_id === undefined;
-    };
-
-    state.subscribing = function(model) {
-       return model.page_id !== undefined && model.sub_id !== undefined && !model.is_sub_acked;
+       return model.is_subscribed === false;
     };
 
     state.subscribed = function(model) {
-       return model.page_id !== undefined && model.sub_id !== undefined && model.is_sub_acked;
+       return model.is_subscribed === true;
     };
 
     // Next action predicate, derives whether
@@ -381,7 +376,7 @@
     // an action needs to be invoked
 
     state.nextAction = function(model) {
-        if (state.unsubscribed(model)) {
+        if (state.unsubscribed(model) && model.page_id !== undefined) {
             actions.subscribe({});
         }
     };
@@ -407,7 +402,7 @@
 
     actions.subscribe = function(data) {
         data = {
-            is_subscribed: true
+            subscribe: true
         };
         model.propose(data);
     };
@@ -429,7 +424,7 @@
     };
 
     actions.presence = function(msg) {
-        data = {
+        let data = {
             presence: {
                 user_id: msg.payload.user_id,
                 page_id: msg.payload.page_id,
@@ -441,7 +436,7 @@
     };
 
     actions.presence_html = function(msg) {
-        data = {
+        let data = {
             user_id: msg.user_id,
             client_id: msg.client_id,
             html: msg.html
